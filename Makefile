@@ -1,5 +1,5 @@
-rbj-m += msp430spi.o 
-obj-m += msp430spi.o 
+rbj-m += msp430Spi.o 
+obj-m += msp430Spi.o 
 
 SRC = $(shell pwd)
 

@@ -112,7 +112,7 @@ static int driver_entry(void)
         goto out_cdev_bad;
 
     // Return 0 if all is good:
-    return g_deviceMajorNumber; 
+    return 0; 
 
 out_major_number_bad:
     printk(KERN_ALERT "Failure to allocate major number!\n");
