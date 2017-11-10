@@ -1,0 +1,16 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+PREFIX	Makefile	/^PREFIX = \/home\/sengming\/Documents\/kernel-build\/tools\/arm-bcm2708\/arm-bcm2708-linux-gnueabi\/bin\/arm-bcm2708-linux-gnueabi-$/;"	m
+RPI_LATEST	Makefile	/^RPI_LATEST = \/home\/sengming\/Documents\/kernel-build\/linux\/$/;"	m
+SRC	Makefile	/^SRC = $(shell pwd)$/;"	m
+__this_module	rpitimer.mod.c	/^__visible struct module __this_module$/;"	v	typeref:struct:module
+__used	rpitimer.mod.c	/^__used$/;"	v	file:
+__used	rpitimer.mod.c	/^__used$/;"	v	typeref:struct:____versions	file:
+hello_exit	rpitimer.c	/^module_exit(hello_exit);$/;"	v
+hello_exit	rpitimer.c	/^static void hello_exit(void)$/;"	f	file:
+hello_init	rpitimer.c	/^module_init(hello_init);$/;"	v
+hello_init	rpitimer.c	/^static int hello_init(void)$/;"	f	file:
