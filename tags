@@ -4,13 +4,37 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.8	//
+BCM2836_GPIO_BASE	msp430Spi.c	22;"	d	file:
+BCM2836_PERIPHERAL_BASE	msp430Spi.c	21;"	d	file:
+BCM2836_SPI_BASE	msp430Spi.c	23;"	d	file:
+BCM2836_SPI_LEN	msp430Spi.c	24;"	d	file:
+DEVICE_IN_BUFFER_SIZE	msp430Spi.c	19;"	d	file:
+DEVICE_NAME	msp430Spi.c	16;"	d	file:
+DEVICE_OUT_BUFFER_SIZE	msp430Spi.c	20;"	d	file:
+FIRST_MINOR_NUMBER	msp430Spi.c	17;"	d	file:
 PREFIX	Makefile	/^PREFIX = \/home\/sengming\/Documents\/kernel-build\/tools\/arm-bcm2708\/arm-bcm2708-linux-gnueabi\/bin\/arm-bcm2708-linux-gnueabi-$/;"	m
 RPI_LATEST	Makefile	/^RPI_LATEST = \/home\/sengming\/Documents\/kernel-build\/linux\/$/;"	m
 SRC	Makefile	/^SRC = $(shell pwd)$/;"	m
-__this_module	rpitimer.mod.c	/^__visible struct module __this_module$/;"	v	typeref:struct:module
-__used	rpitimer.mod.c	/^__used$/;"	v	file:
-__used	rpitimer.mod.c	/^__used$/;"	v	typeref:struct:____versions	file:
-hello_exit	rpitimer.c	/^module_exit(hello_exit);$/;"	v
-hello_exit	rpitimer.c	/^static void hello_exit(void)$/;"	f	file:
-hello_init	rpitimer.c	/^module_init(hello_init);$/;"	v
-hello_init	rpitimer.c	/^static int hello_init(void)$/;"	f	file:
+TOTAL_MINOR_NUMBERS	msp430Spi.c	18;"	d	file:
+__this_module	msp430Spi.mod.c	/^__visible struct module __this_module$/;"	v	typeref:struct:module
+__used	msp430Spi.mod.c	/^__used$/;"	v	file:
+__used	msp430Spi.mod.c	/^__used$/;"	v	typeref:struct:____versions	file:
+deviceSem	msp430Spi.c	/^    struct semaphore deviceSem;$/;"	m	struct:msp430Spi	typeref:struct:msp430Spi::semaphore	file:
+device_open	msp430Spi.c	/^static int device_open(struct inode* deviceFile, struct file* file)$/;"	f	file:
+device_read	msp430Spi.c	/^static int device_read(struct file* deviceFileInstance, char __user* userBuffer, $/;"	f	file:
+device_release	msp430Spi.c	/^static int device_release(struct inode* deviceInode, struct file* deviceFileInstance)$/;"	f	file:
+device_write	msp430Spi.c	/^static int device_write(struct file* deviceFileInstance, $/;"	f	file:
+driver_cleanup	msp430Spi.c	/^static void driver_cleanup(void)$/;"	f	file:
+driver_entry	msp430Spi.c	/^module_init(driver_entry);$/;"	v
+driver_entry	msp430Spi.c	/^static int driver_entry(void)$/;"	f	file:
+driver_exit	msp430Spi.c	/^module_exit(driver_exit);$/;"	v
+driver_exit	msp430Spi.c	/^static void driver_exit (void)$/;"	f	file:
+fops	msp430Spi.c	/^struct file_operations fops=$/;"	v	typeref:struct:file_operations
+g_deviceMajorNumber	msp430Spi.c	/^int g_deviceMajorNumber;$/;"	v
+g_deviceNumber	msp430Spi.c	/^dev_t g_deviceNumber;$/;"	v
+in_fifo	msp430Spi.c	/^    struct kfifo* in_fifo;$/;"	m	struct:msp430Spi	typeref:struct:msp430Spi::kfifo	file:
+msp430Spi	msp430Spi.c	/^struct msp430Spi$/;"	s	file:
+out_fifo	msp430Spi.c	/^    struct kfifo* out_fifo;$/;"	m	struct:msp430Spi	typeref:struct:msp430Spi::kfifo	file:
+p_device	msp430Spi.c	/^struct cdev *p_device;$/;"	v	typeref:struct:cdev
+p_msp430Spi	msp430Spi.c	/^struct msp430Spi* p_msp430Spi;$/;"	v	typeref:struct:msp430Spi
+testHandler	msp430Spi.c	/^irq_handler_t testHandler(int irqNumber, void* deviceId)$/;"	f
