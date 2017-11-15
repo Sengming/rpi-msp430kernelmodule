@@ -12,16 +12,25 @@
 #include <linux/errno.h>
 #include <linux/kfifo.h>
 
-// #defines:
-#define DEVICE_NAME ("msp430Spi")
-#define FIRST_MINOR_NUMBER (0)
-#define TOTAL_MINOR_NUMBERS (1)
-#define DEVICE_IN_BUFFER_SIZE (128)
-#define DEVICE_OUT_BUFFER_SIZE (128)
-#define BCM2836_PERIPHERAL_BASE (0x3F000000)
-#define BCM2836_GPIO_BASE (BCM2836_PERIPHERAL_BASE + 0x200000)
-#define BCM2836_SPI_BASE (BCM2836_PERIPHERAL_BASE + 0x204000)
-#define BCM2836_SPI_LEN (0x18)
+// Settings #defines:
+#define DEVICE_NAME             ("msp430Spi")
+#define FIRST_MINOR_NUMBER      (0)
+#define TOTAL_MINOR_NUMBERS     (1)
+#define DEVICE_IN_BUFFER_SIZE   (128)
+#define DEVICE_OUT_BUFFER_SIZE  (128)
+
+// Hardware specific #defines:
+#define BCM2836_PERIPHERAL_BASE     (0x3F000000)
+#define BCM2836_GPIO_BASE           (BCM2836_PERIPHERAL_BASE + 0x200000)
+
+#define BCM2836_SPI_BASE            (BCM2836_PERIPHERAL_BASE + 0x204000)
+#define BCM2836_SPI_LEN             (0x18)
+#define BCM2836_SPI_CS_OFFSET       (0x00)
+#define BCM2836_SPI_FIFO_OFFSET     (0x04)
+#define BCM2836_SPI_CLK_OFFSET      (0x08)
+#define BCM2836_SPI_DLEN_OFFSET     (0x0C)
+#define BCM2836_SPI_LTOH_OFFSET     (0x10)
+#define BCM2836_SPI_DC_OFFSET       (0x14)
 
 // IRQ Handlers:
 irq_handler_t testHandler(int irqNumber, void* deviceId)
@@ -42,6 +51,7 @@ struct msp430Spi
     struct kfifo in_fifo;
     struct kfifo out_fifo;
     struct semaphore deviceSem;
+    void* virtual_spiBase;
 };
 
 struct msp430Spi* p_msp430Spi;
@@ -50,21 +60,19 @@ struct msp430Spi* p_msp430Spi;
 static void driver_cleanup(void)
 {
     // Cleaning up:
-    unregister_chrdev_region(g_deviceNumber, TOTAL_MINOR_NUMBERS);
-    cdev_del(p_device);
+    iounmap(p_msp430Spi->virtual_spiBase);
+    release_mem_region(BCM2836_SPI_BASE, BCM2836_SPI_LEN);
     kfifo_free(&p_msp430Spi->in_fifo);
     kfifo_free(&p_msp430Spi->out_fifo);
     kfree(p_msp430Spi);
-    release_mem_region(BCM2836_SPI_BASE, BCM2836_SPI_LEN);
+    unregister_chrdev_region(g_deviceNumber, TOTAL_MINOR_NUMBERS);
+    cdev_del(p_device);
 }
 
 static int device_open(struct inode* deviceFile, struct file* file)
 {
     int retVal = 0;
 
-    // Sem Pend
-    if(down_interruptible(&p_msp430Spi->deviceSem))
-        retVal = -ERESTARTSYS;
     // TODO: Remove, just used to test driver and populate fifo
     unsigned char data0 = 255;
     unsigned char data1 = 128;
@@ -75,6 +83,10 @@ static int device_open(struct inode* deviceFile, struct file* file)
     kfifo_put(&p_msp430Spi->in_fifo, data1);
     kfifo_put(&p_msp430Spi->in_fifo, data2);
     kfifo_put(&p_msp430Spi->in_fifo, data3);
+    
+    // Sem Pend
+    if(down_interruptible(&p_msp430Spi->deviceSem))
+        retVal = -ERESTARTSYS;
     printk(KERN_INFO "Device Open called\n");
     return retVal;
 }
@@ -139,14 +151,39 @@ struct file_operations fops=
 
 };
 
+static int spi_peripheral_setup(void)
+{
+    int retVal = 0;
+
+    // Attempt to grab control of memory mapped SPI IO:
+    if (NULL==request_mem_region(BCM2836_SPI_BASE, BCM2836_SPI_LEN, DEVICE_NAME))
+    {
+        goto out_iomem_bad;
+    }
+
+    p_msp430Spi->virtual_spiBase
+        = ioremap(BCM2836_SPI_BASE, BCM2836_SPI_LEN);
+    if (NULL == p_msp430Spi->virtual_spiBase)
+        goto out_remap_failed;
+    
+    return retVal;
+
+out_remap_failed:
+    printk(KERN_ALERT "IOremap failed!\n");
+    release_mem_region(BCM2836_SPI_BASE, BCM2836_SPI_LEN);
+
+out_iomem_bad:
+    printk(KERN_ALERT "IO memory could not be allocated!\n");
+    return -ENOMEM;
+}
+
 static int driver_entry(void)
 {                                  
 //    request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
 //	    const char *name, void *dev)
     int retVal = 0;
     p_msp430Spi = kmalloc(sizeof(struct msp430Spi), GFP_KERNEL);
-    if (p_msp430Spi == NULL)
-        goto out_major_number_bad;
+    
     retVal = kfifo_alloc(&(p_msp430Spi->in_fifo), DEVICE_IN_BUFFER_SIZE, GFP_KERNEL);
     if (retVal)
         goto out_fifo_bad;
@@ -173,17 +210,14 @@ static int driver_entry(void)
     if (retVal < 0)
         goto out_cdev_bad;
 
-    // Attempt to grab control of memory mapped SPI IO:
-    if (NULL==request_mem_region(BCM2836_SPI_BASE, BCM2836_SPI_LEN, DEVICE_NAME))
-    {
-        goto out_iomem_bad;
-    }
+    if (0 > spi_peripheral_setup())
+        goto out_spi_setup_bad;
 
     // Return 0 if all is good:
     return 0; 
 
-out_iomem_bad:
-    printk(KERN_ALERT "IO memory could not be allocated!\n");
+out_spi_setup_bad:
+    printk("SPI peripheral setup failed!\n");
 
 out_cdev_bad:
     printk(KERN_ALERT "Failure to add cdev\n");
