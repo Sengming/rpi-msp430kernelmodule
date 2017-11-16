@@ -11,6 +11,7 @@
 #include <linux/ioport.h>
 #include <linux/errno.h>
 #include <linux/kfifo.h>
+#include "msp430Spi.h"
 
 // Settings #defines:
 #define DEVICE_NAME             ("msp430Spi")
@@ -55,6 +56,8 @@ struct msp430Spi
 };
 
 struct msp430Spi* p_msp430Spi;
+
+union msp430_spi_cs_register cs_register_buffer;
 
 
 static void driver_cleanup(void)
@@ -165,7 +168,15 @@ static int spi_peripheral_setup(void)
         = ioremap(BCM2836_SPI_BASE, BCM2836_SPI_LEN);
     if (NULL == p_msp430Spi->virtual_spiBase)
         goto out_remap_failed;
+
+    // Reset the buffer before writing:
+    cs_register_buffer.full_buffer = 0;
+
+    cs_register_buffer.csbits = 2;
+    cs_register_buffer.cpha = 0;
+    cs_register_buffer.cpol = 0;
     
+    printk(KERN_INFO "CS Register is: %d\n", cs_register_buffer.full_buffer);
     return retVal;
 
 out_remap_failed:
