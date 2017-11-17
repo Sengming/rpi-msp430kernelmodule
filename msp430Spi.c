@@ -13,6 +13,7 @@
 #include <linux/kfifo.h>
 #include <linux/hrtimer.h>
 #include <linux/ktime.h>
+#include <linux/sched.h>
 #include "msp430Spi.h"
 
 // Settings #defines:
@@ -49,7 +50,6 @@ irq_handler_t testHandler(int irqNumber, void* deviceId)
 struct cdev *p_device;
 dev_t g_deviceNumber;
 int g_deviceMajorNumber;
-int tempinterruptcounter = 0;
 
 // The device memory:
 struct msp430Spi
@@ -58,6 +58,7 @@ struct msp430Spi
     struct kfifo out_fifo;
     struct semaphore deviceSem;
     struct hrtimer transferTimer;
+    ktime_t transferTimerInterval;
     void* virtual_spiBase;
 };
 
@@ -69,6 +70,7 @@ union msp430_spi_cs_register cs_register_buffer;
 static void driver_cleanup(void)
 {
     // Cleaning up:
+    hrtimer_cancel(&p_msp430Spi->transferTimer);
     iounmap(p_msp430Spi->virtual_spiBase);
     release_mem_region(BCM2836_SPI_BASE, BCM2836_SPI_LEN);
     kfifo_free(&p_msp430Spi->in_fifo);
@@ -82,16 +84,16 @@ static int device_open(struct inode* deviceFile, struct file* file)
 {
     int retVal = 0;
 
-    // TODO: Remove, just used to test driver and populate fifo
-    unsigned char data0 = 255;
-    unsigned char data1 = 128;
-    unsigned char data2 = 0;
-    unsigned char data3 = 136;
+    //// TODO: Remove, just used to test driver and populate fifo
+    //unsigned char data0 = 255;
+    //unsigned char data1 = 128;
+    //unsigned char data2 = 0;
+    //unsigned char data3 = 136;
 
-    kfifo_put(&p_msp430Spi->in_fifo, data0);
-    kfifo_put(&p_msp430Spi->in_fifo, data1);
-    kfifo_put(&p_msp430Spi->in_fifo, data2);
-    kfifo_put(&p_msp430Spi->in_fifo, data3);
+    //kfifo_put(&p_msp430Spi->in_fifo, data0);
+    //kfifo_put(&p_msp430Spi->in_fifo, data1);
+    //kfifo_put(&p_msp430Spi->in_fifo, data2);
+    //kfifo_put(&p_msp430Spi->in_fifo, data3);
     
     // Sem Pend
     if(down_interruptible(&p_msp430Spi->deviceSem))
@@ -196,30 +198,32 @@ out_iomem_bad:
 
 enum hrtimer_restart transfer_timer_isr(struct hrtimer* dataIn)
 {
-    ++tempinterruptcounter;
-    if ((tempinterruptcounter % 30000) == 0)
-    {
-        printk(KERN_INFO "Interrupt just kicked 30000 times!\n");
-        tempinterruptcounter = 0;
-    }
-    return HRTIMER_NORESTART;
+    struct msp430Spi* p_dev = container_of(dataIn, struct msp430Spi, transferTimer);
+    kfifo_put(&p_dev->in_fifo, 255);
+    hrtimer_forward_now(dataIn, p_dev->transferTimerInterval);
+    return HRTIMER_RESTART;
 }
 
 static int setup_hres_abs_timer(struct hrtimer* timer, 
-        enum hrtimer_restart (*timerFunction)(struct hrtimer* ),
-        unsigned int ns_interval)
+        enum hrtimer_restart (*p_timerFunction)(struct hrtimer* ),
+        ktime_t* p_ktime_interval)
 {
-    ktime_t ktime_interval;
-    ktime_interval = ktime_set(0, ns_interval);
+    hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+    
+    if (p_timerFunction == NULL)
+        goto out_bad;
+    timer->function = p_timerFunction;
+    
+    if (p_ktime_interval == NULL)
+        goto out_bad;
 
-    timer->function = timerFunction;
+    *p_ktime_interval = ktime_set(0, TRANSFER_TIMER_NS_INTERVAL);
+    hrtimer_start(timer, *p_ktime_interval, HRTIMER_MODE_ABS);
     
-    hrtimer_init(timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
-    hrtimer_start(timer, ktime_interval, HRTIMER_MODE_REL);
-    
-//    hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
-//    hrtimer_start(timer, ktime_interval, HRTIMER_MODE_ABS);
     return 0;
+
+out_bad:
+    return -EINVAL;
 }
 
 static int driver_entry(void)
@@ -260,8 +264,8 @@ static int driver_entry(void)
         goto out_spi_setup_bad;
 
     // Setup transfer timer
-    if (0 > setup_hres_abs_timer(&p_msp430Spi->transferTimer, transfer_timer_isr, 
-                TRANSFER_TIMER_NS_INTERVAL))
+    if (0 > setup_hres_abs_timer(&(p_msp430Spi->transferTimer), &transfer_timer_isr, 
+                &(p_msp430Spi->transferTimerInterval)))
         goto out_timer_setup_bad;
 
     // Return 0 if all is good:
