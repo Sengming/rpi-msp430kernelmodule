@@ -11,14 +11,18 @@
 #include <linux/ioport.h>
 #include <linux/errno.h>
 #include <linux/kfifo.h>
+#include <linux/hrtimer.h>
+#include <linux/ktime.h>
 #include "msp430Spi.h"
 
 // Settings #defines:
 #define DEVICE_NAME             ("msp430Spi")
+#define AUTHOR_HANDLE           "SmYte"
 #define FIRST_MINOR_NUMBER      (0)
 #define TOTAL_MINOR_NUMBERS     (1)
 #define DEVICE_IN_BUFFER_SIZE   (128)
 #define DEVICE_OUT_BUFFER_SIZE  (128)
+#define TRANSFER_TIMER_NS_INTERVAL (62000) // Set to 62 us, 62000 ns
 
 // Hardware specific #defines:
 #define BCM2836_PERIPHERAL_BASE     (0x3F000000)
@@ -45,6 +49,7 @@ irq_handler_t testHandler(int irqNumber, void* deviceId)
 struct cdev *p_device;
 dev_t g_deviceNumber;
 int g_deviceMajorNumber;
+int tempinterruptcounter = 0;
 
 // The device memory:
 struct msp430Spi
@@ -52,6 +57,7 @@ struct msp430Spi
     struct kfifo in_fifo;
     struct kfifo out_fifo;
     struct semaphore deviceSem;
+    struct hrtimer transferTimer;
     void* virtual_spiBase;
 };
 
@@ -168,7 +174,7 @@ static int spi_peripheral_setup(void)
         = ioremap(BCM2836_SPI_BASE, BCM2836_SPI_LEN);
     if (NULL == p_msp430Spi->virtual_spiBase)
         goto out_remap_failed;
-
+    // TODO: Add SPI Setup, first we are going to do timers.
     // Reset the buffer before writing:
     cs_register_buffer.full_buffer = 0;
 
@@ -186,6 +192,34 @@ out_remap_failed:
 out_iomem_bad:
     printk(KERN_ALERT "IO memory could not be allocated!\n");
     return -ENOMEM;
+}
+
+enum hrtimer_restart transfer_timer_isr(struct hrtimer* dataIn)
+{
+    ++tempinterruptcounter;
+    if ((tempinterruptcounter % 30000) == 0)
+    {
+        printk(KERN_INFO "Interrupt just kicked 30000 times!\n");
+        tempinterruptcounter = 0;
+    }
+    return HRTIMER_NORESTART;
+}
+
+static int setup_hres_abs_timer(struct hrtimer* timer, 
+        enum hrtimer_restart (*timerFunction)(struct hrtimer* ),
+        unsigned int ns_interval)
+{
+    ktime_t ktime_interval;
+    ktime_interval = ktime_set(0, ns_interval);
+
+    timer->function = timerFunction;
+    
+    hrtimer_init(timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
+    hrtimer_start(timer, ktime_interval, HRTIMER_MODE_REL);
+    
+//    hrtimer_init(timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+//    hrtimer_start(timer, ktime_interval, HRTIMER_MODE_ABS);
+    return 0;
 }
 
 static int driver_entry(void)
@@ -221,14 +255,23 @@ static int driver_entry(void)
     if (retVal < 0)
         goto out_cdev_bad;
 
+    // Setup BCM2836 SPI peripheral
     if (0 > spi_peripheral_setup())
         goto out_spi_setup_bad;
+
+    // Setup transfer timer
+    if (0 > setup_hres_abs_timer(&p_msp430Spi->transferTimer, transfer_timer_isr, 
+                TRANSFER_TIMER_NS_INTERVAL))
+        goto out_timer_setup_bad;
 
     // Return 0 if all is good:
     return 0; 
 
+out_timer_setup_bad:
+    printk(KERN_ALERT "Transfer timer setup failed!\n");
+
 out_spi_setup_bad:
-    printk("SPI peripheral setup failed!\n");
+    printk(KERN_ALERT "SPI peripheral setup failed!\n");
 
 out_cdev_bad:
     printk(KERN_ALERT "Failure to add cdev\n");
@@ -254,3 +297,7 @@ static void driver_exit (void)
 
 module_init(driver_entry);
 module_exit(driver_exit);
+
+// Licensing and author:
+MODULE_AUTHOR(AUTHOR_HANDLE);
+MODULE_LICENSE("GPL");
